@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open World Teddy Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui">
+        <div id="health-bar"><span id="health-text"></span></div>
+        <div id="xp-bar"><span id="xp-text"></span></div>
+        <button id="attack-btn">Attack</button>
+        <div id="rest-indicator">Resting...</div>
+        <div id="loot-notification"></div>
+    </div>
+    <div id="inventory" style="display:none;">
+        <h3>Inventory</h3>
+        <div id="equipment-slots">
+            <div class="equip-slot" id="slot-hat">Hat: <span></span></div>
+            <div class="equip-slot" id="slot-shirt">Shirt: <span></span></div>
+            <div class="equip-slot" id="slot-pants">Pants: <span></span></div>
+            <div class="equip-slot" id="slot-weapon">Weapon: <span></span></div>
+        </div>
+        <div id="inventory-items"></div>
+        <button onclick="document.getElementById('inventory').style.display='none'">Close</button>
+    </div>
+    <div id="instructions">
+        <h2>How to Play</h2>
+        <ul>
+            <li>WASD or Arrow keys to move</li>
+            <li>Mouse to look around</li>
+            <li>Click "Attack" or press F to attack enemies</li>
+            <li>Enter safe zones to rest and regain health</li>
+            <li>Press Space to jump</li>
+            <li>Press I to view inventory</li>
+        </ul>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
