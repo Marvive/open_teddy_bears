@@ -71,41 +71,27 @@ function init() {
 function createGround() {
     // Height map for hills
     const size = params.worldSize;
-    const geometry = new THREE.PlaneGeometry(size, size, 64, 64);
+    const geometry = new THREE.PlaneGeometry(size, size, 128, 128);
     geometry.rotateX(-Math.PI/2);
+
     for (let i = 0; i < geometry.attributes.position.count; i++) {
         let x = geometry.attributes.position.getX(i);
         let z = geometry.attributes.position.getZ(i);
-        // Simple hills
-        let y = Math.sin(x/30)*3 + Math.cos(z/40)*2;
-        // Add lakes (lower y in certain areas)
-        if ((x+60)*(x+60)+(z-80)*(z-80) < 500) y -= 3; // lake 1
-        if ((x-100)*(x-100)+(z+70)*(z+70) < 400) y -= 2.5; // lake 2
-        // Add river
-        if (Math.abs(x+z) < 18 && z > -100 && z < 100) y -= 2.2;
-        // Add rocks (raise y in patches)
-        if ((x-40)*(x-40)+(z+30)*(z+30) < 120) y += 2.2; // rock hill
-        if ((x+110)*(x+110)+(z-40)*(z-40) < 60) y += 2.7; // rocky outcrop
-        geometry.attributes.position.setY(i, y);
+        geometry.attributes.position.setY(i, getGroundHeight(x, z));
     }
     geometry.computeVertexNormals();
-    const groundMat = new THREE.MeshLambertMaterial({color: 0x4caf50});
+    const groundMat = new THREE.MeshLambertMaterial({color: 0x4caf50, side: THREE.DoubleSide});
     ground = new THREE.Mesh(geometry, groundMat);
     ground.receiveShadow = true;
     scene.add(ground);
-    // Add some rocks
-    for (let i = 0; i < 16; i++) {
-        let rock = new THREE.Mesh(
-            new THREE.DodecahedronGeometry(2.5 + Math.random()*2, 0),
-            new THREE.MeshLambertMaterial({color: 0x757575})
-        );
-        let rx = (Math.random()-0.5)*size*0.9;
-        let rz = (Math.random()-0.5)*size*0.9;
-        let ry = getGroundHeight(rx, rz) + 2.1;
-        rock.position.set(rx, ry, rz);
-        rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-        scene.add(rock);
-    }
+
+    // Water
+    const waterGeom = new THREE.PlaneGeometry(size, size);
+    waterGeom.rotateX(-Math.PI/2);
+    const waterMat = new THREE.MeshLambertMaterial({color: 0x00bcd4, transparent: true, opacity: 0.7});
+    const water = new THREE.Mesh(waterGeom, waterMat);
+    water.position.y = -2;
+    scene.add(water);
 }
 
 function createRainbowClouds() {
@@ -153,81 +139,63 @@ function createSafeZones() {
 
 function createPlayer() {
     player = new THREE.Group();
-    // Torso
-    let body = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.8, 2.0, 8, 16),
+    const head = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 1.5, 1.5),
         new THREE.MeshLambertMaterial({color: 0xffe082})
     );
-    body.position.y = 2.2;
-    player.add(body);
-    // Head
-    let head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.8, 16, 16),
-        new THREE.MeshLambertMaterial({color: 0xfff8e1})
-    );
-    head.position.y = 4.1;
+    head.position.y = 3.75;
     player.add(head);
-    // Face (eyes & smile)
-    let eyeMat = new THREE.MeshBasicMaterial({color: 0x222222});
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 2, 1),
+        new THREE.MeshLambertMaterial({color: 0x1976d2})
+    );
+    body.position.y = 1.5;
+    player.add(body);
+
+    const rightArm = new THREE.Group();
+    const rightArmMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 2, 0.5),
+        new THREE.MeshLambertMaterial({color: 0xffe082})
+    );
+    rightArmMesh.position.y = -0.5;
+    rightArm.add(rightArmMesh);
+    rightArm.position.set(-1, 2, 0);
+    rightArm.name = 'rightArm';
+    player.add(rightArm);
+
+    const leftArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 2, 0.5),
+        new THREE.MeshLambertMaterial({color: 0xffe082})
+    );
+    leftArm.position.set(1, 1.5, 0);
+    player.add(leftArm);
+
     for (let i = 0; i < 2; i++) {
-        let eye = new THREE.Mesh(
-            new THREE.SphereGeometry(0.08, 8, 8), eyeMat
+        const leg = new THREE.Mesh(
+            new THREE.BoxGeometry(0.5, 1.5, 0.5),
+            new THREE.MeshLambertMaterial({color: 0x424242})
         );
-        eye.position.set(i===0?-0.22:0.22, 4.36, 0.7);
-        player.add(eye);
+        leg.position.set(i === 0 ? -0.375 : 0.375, -0.25, 0);
+        player.add(leg);
     }
-    // Smile (arc)
-    let smileGeom = new THREE.TorusGeometry(0.16, 0.03, 8, 24, Math.PI);
-    let smile = new THREE.Mesh(smileGeom, new THREE.MeshBasicMaterial({color: 0x222222}));
-    smile.position.set(0, 4.16, 0.74);
-    smile.rotation.set(Math.PI/2, 0, 0);
-    player.add(smile);
-    // Arms (humanoid, only 2 total)
-    for (let i = 0; i < 2; i++) {
-        let upperArm = new THREE.Mesh(
-            new THREE.CapsuleGeometry(0.17, 0.68, 8, 12),
-            new THREE.MeshLambertMaterial({color: 0xffe082})
-        );
-        upperArm.position.set(i===0?-0.73:0.73, 3.1, 0.3);
-        upperArm.rotation.z = i===0?Math.PI/7:-Math.PI/7;
-        upperArm.name = 'arm';
-        player.add(upperArm);
-    }
-    // Legs (humanoid)
-    for (let i = 0; i < 2; i++) {
-        let thigh = new THREE.Mesh(
-            new THREE.CapsuleGeometry(0.20, 0.70, 8, 12),
-            new THREE.MeshLambertMaterial({color: 0xffe082})
-        );
-        thigh.position.set(i===0?-0.35:0.35, 1.13, 0.1);
-        thigh.name = 'thigh';
-        player.add(thigh);
-        let shin = new THREE.Mesh(
-            new THREE.CapsuleGeometry(0.17, 0.55, 8, 12),
-            new THREE.MeshLambertMaterial({color: 0xffe082})
-        );
-        shin.position.set(i===0?-0.35:0.35, 0.4, 0.1);
-        shin.name = 'shin';
-        player.add(shin);
-    }
-    // Default sword (will be replaced if weapon equipped)
+    
     let sword = new THREE.Group();
     let blade = new THREE.Mesh(
-        new THREE.BoxGeometry(0.15, 1.6, 0.15),
+        new THREE.BoxGeometry(0.1, 1.5, 0.3),
         new THREE.MeshLambertMaterial({color: 0xb0bec5})
     );
-    blade.position.y = 0.8;
+    blade.position.y = 0.75;
     sword.add(blade);
     let hilt = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 0.36, 8),
+        new THREE.BoxGeometry(0.2, 0.3, 0.4),
         new THREE.MeshLambertMaterial({color: 0x8d6e63})
     );
-    hilt.position.y = 0.05;
     sword.add(hilt);
-    sword.position.set(0.7, 2.5, 0.6);
-    sword.rotation.set(Math.PI/6, 0, Math.PI/10);
+    sword.position.set(0, -1.5, 0);
     sword.name = 'weapon';
-    player.add(sword);
+    rightArm.add(sword);
+
     player.position.set(0, 0, 0);
     scene.add(player);
 }
@@ -398,6 +366,11 @@ function setupControls() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousemove', onMouseMove);
+
+    renderer.domElement.addEventListener('click', () => {
+        renderer.domElement.requestPointerLock();
+    });
+
     document.getElementById('attack-btn').addEventListener('click', attack);
     document.addEventListener('keydown', function(e) {
         if ((e.key === 'f' || e.code === 'KeyF') && !gameOver) {
@@ -417,8 +390,11 @@ function onKeyDown(e) { keys[e.key.toLowerCase()] = true; }
 function onKeyUp(e) { keys[e.key.toLowerCase()] = false; }
 let mouse = {x: 0, y: 0};
 function onMouseMove(e) {
-    mouse.x = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
-    mouse.y = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
+    if (document.pointerLockElement === renderer.domElement) {
+        yaw -= e.movementX * 0.002;
+        pitch -= e.movementY * 0.002;
+        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+    }
 }
 
 let yaw = 0, pitch = 0;
@@ -428,15 +404,9 @@ function updatePlayerMovement(dt) {
     // WASD/Arrows for movement
     if (keys['w'] || keys['arrowup'] || keys['i']) forward += 1;
     if (keys['s'] || keys['arrowdown'] || keys['k']) forward -= 1;
-    if (keys['a'] || keys['arrowleft']) right -= 1;
-    if (keys['d'] || keys['arrowright']) right += 1;
-    // IJKL for rotation (J/L left/right)
-    if (keys['j']) yaw += 0.045;
-    if (keys['l']) yaw -= 0.045;
-    // Mouse only changes pitch
-    pitch -= mouse.y * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-    mouse.x = mouse.y = 0;
+    if (keys['a'] || keys['arrowleft']) right += 1;
+    if (keys['d'] || keys['arrowright']) right -= 1;
+
     // Move player in yaw direction
     let dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     let rightVec = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
@@ -473,11 +443,22 @@ function updatePlayerMovement(dt) {
 }
 
 function getGroundHeight(x, z) {
-    // Approximate height function for ground
-    let y = Math.sin(x/30)*3 + Math.cos(z/40)*2;
-    if ((x+60)*(x+60)+(z-80)*(z-80) < 500) y -= 3;
-    if ((x-100)*(x-100)+(z+70)*(z+70) < 400) y -= 2.5;
-    if (Math.abs(x+z) < 18 && z > -100 && z < 100) y -= 2.2;
+    let y = 0;
+    const distFromCenter = Math.sqrt(x*x + z*z);
+
+    // Big hill in the middle
+    if (distFromCenter < 80) {
+        y = 20 * Math.exp(-distFromCenter * distFromCenter / 4000);
+    }
+
+    // Water trench around the hill
+    if (distFromCenter > 90 && distFromCenter < 120) {
+        return -5; // Water level
+    }
+    
+    // Some other smaller hills
+    y += Math.sin(x/30)*3 + Math.cos(z/40)*2;
+
     return y;
 }
 
@@ -494,17 +475,16 @@ function animate() {
         if (sz.marker) sz.marker.rotation.z += 0.07;
     });
     // --- Sword swing animation ---
-    if (swordSwinging && player && player.children) {
-        let sword = player.children.find(obj => obj && obj.type === 'Group');
-        if (sword) {
-            sword.rotation.z = Math.PI/10 + Math.sin(swordSwingTimer * 16) * 1.1;
-            sword.rotation.y = Math.PI/10 + Math.sin(swordSwingTimer * 14) * 0.4;
+    if (swordSwinging && player) {
+        const rightArm = player.getObjectByName('rightArm');
+        if (rightArm) {
+            rightArm.rotation.x = -Math.PI / 2 * (1 - Math.cos(swordSwingTimer * Math.PI * 2));
         }
         swordSwingTimer += dt;
-        if (swordSwingTimer > 0.23) {
+        if (swordSwingTimer > 0.5) {
             swordSwinging = false;
-            if (sword) {
-                sword.rotation.set(Math.PI/6, 0, Math.PI/10);
+            if (rightArm) {
+                rightArm.rotation.x = 0;
             }
         }
     }
